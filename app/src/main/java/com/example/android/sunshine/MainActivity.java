@@ -22,6 +22,7 @@ import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ProgressBar;
 import android.widget.TextView;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.utilities.NetworkUtils;
@@ -33,7 +34,8 @@ import org.json.JSONException;
 public class MainActivity extends AppCompatActivity {
 
     private TextView mWeatherTextView;
-
+    private TextView mErrorMessageDisplay;
+    private ProgressBar mLoadingIndicator;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,21 +46,22 @@ public class MainActivity extends AppCompatActivity {
          * do things like set the text of the TextView.
          */
         mWeatherTextView = (TextView) findViewById(R.id.tv_weather_data);
+        mErrorMessageDisplay = (TextView) findViewById(R.id.tv_error_message_display);
+        mLoadingIndicator = (ProgressBar) findViewById(R.id.pb_loading_indicator);
         loadWeatherData();
     }
 
     void loadWeatherData() {
+        mErrorMessageDisplay.setVisibility(View.INVISIBLE);
         mWeatherTextView.setText("");
         new FetchWeatherTask().execute(SunshinePreferences.getPreferredWeatherLocation(this));
     }
     public class FetchWeatherTask extends AsyncTask<String, Void, String[]> {
- /*
         @Override
         protected void onPreExecute() {
             super.onPreExecute();
-       //     mLoadingIndicator.setVisibility(View.VISIBLE);
+            mLoadingIndicator.setVisibility(View.VISIBLE);
         }
-*/
         @Override
         protected String[] doInBackground(String... params) {
             if(params.length == 0)
@@ -72,6 +75,7 @@ public class MainActivity extends AppCompatActivity {
                 String[] jsonWeatherData = OpenWeatherJsonUtils.getSimpleWeatherStringsFromJson(MainActivity.this, jsonWeatherResponse);
                 return jsonWeatherData;
             } catch (IOException | JSONException e) {
+                mErrorMessageDisplay.setVisibility(View.VISIBLE);
                 e.printStackTrace();
             }
             return null;
@@ -80,6 +84,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         protected void onPostExecute(String[] weatherData) {
             //clear text if there are any
+            mLoadingIndicator.setVisibility(View.INVISIBLE);
             for (String weatherString : weatherData) {
                 mWeatherTextView.append((weatherString) + "\n\n\n");
             }
