@@ -68,14 +68,12 @@ public final class NetworkUtils {
      */
     public static URL buildUrl(String locationQuery) {
         // use different base url? STATIC_WEATHER_URL?
-        Uri builtUri = Uri.parse(DYNAMIC_WEATHER_URL).buildUpon()
+        Uri builtUri = Uri.parse(STATIC_WEATHER_URL).buildUpon()
                 .appendQueryParameter(QUERY_PARAM, locationQuery)
-                /*
-                                .appendQueryParameter(FORMAT_PARAM, format)
+                .appendQueryParameter(FORMAT_PARAM, format)
                 .appendQueryParameter(UNITS_PARAM, units)
                 .appendQueryParameter(DAYS_PARAM, Integer.toString(numDays))
 
-                 */
                 .build();
 
         URL url = null;
