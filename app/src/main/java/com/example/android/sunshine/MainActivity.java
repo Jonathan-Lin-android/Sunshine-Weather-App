@@ -15,6 +15,7 @@
  */
 package com.example.android.sunshine;
 
+import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
@@ -136,11 +137,17 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
 
     @Override
     public void onListItemClick(String weather) {
+/*
         if (mToast != null) {
             mToast.cancel();
         }
         mToast = Toast.makeText(this, weather, Toast.LENGTH_LONG);
         mToast.show();
+         */
+        Intent intent = new Intent(this, DetailActivity.class)
+                .putExtra(Intent.EXTRA_TEXT, weather);
+        if(intent.resolveActivity(getPackageManager()) != null)
+            startActivity(intent);
     }
 
     private void showWeatherDataView() {
