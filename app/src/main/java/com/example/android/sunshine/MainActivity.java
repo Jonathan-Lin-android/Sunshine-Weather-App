@@ -18,9 +18,15 @@ package com.example.android.sunshine;
 import android.content.Intent;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
+import android.support.annotation.Nullable;
+import android.support.v4.app.LoaderManager;
+import android.support.v4.content.AsyncTaskLoader;
+import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,11 +37,12 @@ import android.widget.Toast;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.utilities.NetworkUtils;
 import com.example.android.sunshine.utilities.OpenWeatherJsonUtils;
+import com.example.android.sunshine.utilities.SunshineWeatherUtils;
 import java.io.IOException;
 import java.net.URL;
 import org.json.JSONException;
 
-public class MainActivity extends AppCompatActivity implements Adapter.ListItemClickListener {
+public class MainActivity extends AppCompatActivity implements Adapter.ListItemClickListener, LoaderManager.LoaderCallbacks<String []> {
 
     private Toast mToast;
 
@@ -44,6 +51,9 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
     private ProgressBar mLoadingIndicator;
     private RecyclerView mWeatherDataList;
     private Adapter mAdapter;
+
+    private final int FORECAST_LOADER_ID = 22;
+    private final String LOCATION_QUERY_URL_EXTRA = "query";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -62,57 +72,82 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
         mWeatherDataList.setHasFixedSize(true);
         mAdapter = new Adapter(this);
         mWeatherDataList.setAdapter(mAdapter);
-        //set up adapter?
-        loadWeatherData();
+
+        getSupportLoaderManager().initLoader(FORECAST_LOADER_ID, null, this);
     }
 
-    void loadWeatherData() {
-        new FetchWeatherTask().execute(SunshinePreferences.getPreferredWeatherLocation(this));
-}
 
-    public class FetchWeatherTask extends AsyncTask<String, Void, String[]> {
+    // queries weather site for data. returns result string[] parsed from json. below is background thread.
+    @NonNull
+    @Override
+    public Loader<String []> onCreateLoader(final int id, @Nullable final Bundle bundle) {
+        return new AsyncTaskLoader<String []>(this) {
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
-            mWeatherDataList.setVisibility(View.INVISIBLE);
-            mLoadingIndicator.setVisibility(View.VISIBLE);
-        }
+            String[] mWeatherData = null;
+            //Asynctask onPreExecute
+            @Override
+            protected void onStartLoading() {
+                super.onStartLoading();
+                if(mWeatherData != null)
+                    deliverResult(mWeatherData);
+                else {
+                    mWeatherDataList.setVisibility(View.INVISIBLE);
+                    mLoadingIndicator.setVisibility(View.VISIBLE);
+                    forceLoad();
+                }
+            }
 
-        @Override
-        protected String[] doInBackground(String... params) {
-            if (params.length == 0) {
+            // used for when switching back and forth betweewn apps so there will be no reboots like configuration change from rotating device
+            // happens after loadInBackground.
+            // super.deliverResult(data) forces to skip loadInBackground
+            @Override
+            public void deliverResult(@Nullable final String [] data) {
+                mWeatherData = data;
+                super.deliverResult(data);
+            }
+
+            //Asynctask doInBackground
+            @Nullable
+            @Override
+            public String [] loadInBackground() {
+                //default location that is being queried
+                String location = SunshinePreferences.getPreferredWeatherLocation(MainActivity.this);
+
+                try {
+                    //building url from location
+                    URL url = NetworkUtils.buildUrl(location);
+                    String jsonWeatherResponse = NetworkUtils.getResponseFromHttpUrl(url);
+                    Log.d("testt", url.toString());
+                    String[] jsonWeatherData = OpenWeatherJsonUtils
+                            .getSimpleWeatherStringsFromJson(MainActivity.this, jsonWeatherResponse);
+                    return jsonWeatherData;
+                } catch (IOException | JSONException e) {
+                    showErrorMessage();
+                    e.printStackTrace();
+                }
                 return null;
             }
-            String location = params[0];
-            try {
-                //location is first param
-                URL url = NetworkUtils.buildUrl(location);
-                String jsonWeatherResponse = NetworkUtils.getResponseFromHttpUrl(url);
-              Log.d("testt", url.toString());
-                String[] jsonWeatherData = OpenWeatherJsonUtils
-                        .getSimpleWeatherStringsFromJson(MainActivity.this, jsonWeatherResponse);
-                return jsonWeatherData;
-            } catch (IOException | JSONException e) {
-                showErrorMessage();
-                e.printStackTrace();
-            }
-            return null;
-        }
-
-        @Override
-        protected void onPostExecute(String[] weatherData) {
-            //clear text if there are any
-            mLoadingIndicator.setVisibility(View.INVISIBLE);
-            showWeatherDataView();
-
-            if (weatherData != null)
-                mAdapter.setWeatherData(weatherData);
-            else
-                showErrorMessage();
-        }
+        };
     }
 
+    // parsed json result in string []. This happens on main thread.
+    //Asynctask onPostExecute
+    @Override
+    public void onLoadFinished(@NonNull final Loader<String []> loader, final String[] weatherData) {
+        //clear text if there are any
+        mLoadingIndicator.setVisibility(View.INVISIBLE);
+        showWeatherDataView();
+
+        if (weatherData != null)
+            mAdapter.setWeatherData(weatherData);
+        else
+            showErrorMessage();
+    }
+
+    @Override
+    public void onLoaderReset(@NonNull final Loader<String []> loader) {
+
+    }
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         getMenuInflater().inflate(R.menu.forecast, menu);
@@ -127,9 +162,10 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
     public boolean onOptionsItemSelected(MenuItem item) {
         int menuItemThatWasSelected = item.getItemId();
         if (menuItemThatWasSelected == R.id.action_refresh) {
-            //force reset
+            //force reset invalidates data
             mAdapter.setWeatherData(null);
-            loadWeatherData();
+            LoaderManager loaderManager = getSupportLoaderManager();
+            loaderManager.restartLoader(FORECAST_LOADER_ID, null, this);
             return true;
         }
         return super.onOptionsItemSelected(item);
