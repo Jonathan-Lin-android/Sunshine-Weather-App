@@ -168,18 +168,15 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
             loaderManager.restartLoader(FORECAST_LOADER_ID, null, this);
             return true;
         }
+
+        if(menuItemThatWasSelected == R.id.action_settings){
+            startActivity(new Intent(this, SettingsActivity.class));
+        }
         return super.onOptionsItemSelected(item);
     }
 
     @Override
     public void onListItemClick(String weather) {
-/*
-        if (mToast != null) {
-            mToast.cancel();
-        }
-        mToast = Toast.makeText(this, weather, Toast.LENGTH_LONG);
-        mToast.show();
-         */
         Intent intent = new Intent(this, DetailActivity.class)
                 .putExtra(Intent.EXTRA_TEXT, weather);
         if(intent.resolveActivity(getPackageManager()) != null)
