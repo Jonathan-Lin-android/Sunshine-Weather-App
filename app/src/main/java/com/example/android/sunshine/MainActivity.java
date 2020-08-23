@@ -16,8 +16,11 @@
 package com.example.android.sunshine;
 
 import android.content.Intent;
-import android.os.AsyncTask;
+import android.content.SharedPreferences;
+import android.content.SharedPreferences.OnSharedPreferenceChangeListener;
+import android.net.Uri;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.LoaderManager;
@@ -26,7 +29,6 @@ import android.support.v4.content.Loader;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -37,13 +39,14 @@ import android.widget.Toast;
 import com.example.android.sunshine.data.SunshinePreferences;
 import com.example.android.sunshine.utilities.NetworkUtils;
 import com.example.android.sunshine.utilities.OpenWeatherJsonUtils;
-import com.example.android.sunshine.utilities.SunshineWeatherUtils;
 import java.io.IOException;
 import java.net.URL;
 import org.json.JSONException;
 
-public class MainActivity extends AppCompatActivity implements Adapter.ListItemClickListener, LoaderManager.LoaderCallbacks<String []> {
+public class MainActivity extends AppCompatActivity implements Adapter.ListItemClickListener, LoaderManager.LoaderCallbacks<String []>,
+        OnSharedPreferenceChangeListener {
 
+    private static final String TAG = "testt";
     private Toast mToast;
 
     private TextView mErrorMessageDisplay;
@@ -53,7 +56,8 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
     private Adapter mAdapter;
 
     private final int FORECAST_LOADER_ID = 22;
-    private final String LOCATION_QUERY_URL_EXTRA = "query";
+
+    private boolean preferences_updated = false;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,6 +78,24 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
         mWeatherDataList.setAdapter(mAdapter);
 
         getSupportLoaderManager().initLoader(FORECAST_LOADER_ID, null, this);
+        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(this);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        if(preferences_updated)
+        {
+            Log.d("testt", "prefernce updated on start");
+            getSupportLoaderManager().restartLoader(FORECAST_LOADER_ID, null, this);
+            preferences_updated = false;
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(this);
+        super.onDestroy();
     }
 
 
@@ -155,6 +177,26 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
     }
 
     @Override
+    public void onSharedPreferenceChanged(final SharedPreferences sharedPreferences, final String key) {
+        //force reset invalidates data
+        this.preferences_updated = true;
+    }
+
+
+    private void openLocationInMap() {
+        String addressString = SunshinePreferences.getPreferredWeatherLocation(this);
+        Uri geoLocation = Uri.parse("geo:0,0?q=" + addressString);
+
+        Intent intent = new Intent(Intent.ACTION_VIEW);
+        intent.setData(geoLocation);
+
+        if (intent.resolveActivity(getPackageManager()) != null) {
+            startActivity(intent);
+        } else {
+            Log.d(TAG, "Couldn't call " + geoLocation.toString() + ", no receiving apps installed!");
+        }
+    }
+    @Override
     /*
     When you successfully handle a menu item, return true. If you don't handle the menu item,
     you should call the superclass implementation of onOptionsItemSelected() (the default implementation returns false).
@@ -168,9 +210,13 @@ public class MainActivity extends AppCompatActivity implements Adapter.ListItemC
             loaderManager.restartLoader(FORECAST_LOADER_ID, null, this);
             return true;
         }
-
-        if(menuItemThatWasSelected == R.id.action_settings){
+        else if (menuItemThatWasSelected == R.id.action_map) {
+            openLocationInMap();
+            return true;
+        }
+        else if(menuItemThatWasSelected == R.id.action_settings){
             startActivity(new Intent(this, SettingsActivity.class));
+            return true;
         }
         return super.onOptionsItemSelected(item);
     }

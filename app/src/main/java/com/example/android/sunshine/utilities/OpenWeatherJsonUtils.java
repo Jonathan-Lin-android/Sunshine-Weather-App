@@ -18,6 +18,8 @@ package com.example.android.sunshine.utilities;
 import android.content.ContentValues;
 import android.content.Context;
 
+import android.util.Log;
+import com.example.android.sunshine.data.SunshinePreferences;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -128,6 +130,8 @@ public final class OpenWeatherJsonUtils {
             JSONObject temperatureObject = dayForecast.getJSONObject(OWM_TEMPERATURE);
             high = temperatureObject.getDouble(OWM_MAX);
             low = temperatureObject.getDouble(OWM_MIN);
+            Log.d("testt","high low called");
+            Log.d("testt", "isMetric: " + SunshinePreferences.isMetric(context));
             highAndLow = SunshineWeatherUtils.formatHighLows(context, high, low);
 
             parsedWeatherData[i] = date + " - " + description + " - " + highAndLow;
